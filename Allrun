@@ -1,0 +1,88 @@
+#!/bin/sh
+cd ${0%/*} || exit 1    # run from this directory
+
+#------------------------------- nanoFluid4Foam project -------------------------------#
+#Author
+    #Ehsan Golab, SUT. All rights reserved.
+    #Ehsan1996Golab@gmail.com
+
+#--------------------------------------------------------------------------------------#
+
+# Source tutorial run functions
+. $WM_PROJECT_DIR/bin/tools/RunFunctions
+
+# cleancase is function that removes the files and directories.(rm -f : remove the file, rm -r : remove the directory).
+cleancase ()
+{
+    rm -r Gnu*
+    rm -r processor*
+}
+
+# (getApplication) is an command to find the solver name from the controlDict file. Also, ($) use for the variable.
+application=$(getApplication)
+
+#cleancase
+#./Allclean
+
+
+# set value for variable
+Ra_=100.0
+theta_=0
+alpha_=0.0
+
+rhobf_=996.5
+Cpbf_=4181.0
+kappabf_=0.628
+mubf_=0.00085
+betabf_=0.00026
+deltaTemp_=10.0
+charL_=0.4
+nubf_=`echo $mubf_/$rhobf_ | bc -l`
+alphabf_=`echo $kappabf_/$rhobf_/$Cpbf_ | bc -l`
+
+
+gravity_=`echo $Ra_*$nubf_*$alphabf_/$betabf_/$deltaTemp_/$charL_/$charL_/$charL_ | bc -l`
+Radian_=`echo $theta_*3.14/180 | bc -l`
+gx_=$(echo "scale=15;$gravity_*s($Radian_)" |  bc -l)
+gy_=$(echo "scale=15; $gravity_*c($Radian_)" |  bc -l)
+
+# set value for files
+sed -i "s/gravityRef/$gravity_/" 	$curdir'system/controlDict'
+sed -i "s/gravityX/$gx_/" 		$curdir'constant/g'
+sed -i "s/gravityY/$gy_/" 		$curdir'constant/g'
+sed -i "s/alphaRef/$alpha_/" 		$curdir'0/alpha_NEPCMOne'
+
+
+echo run blockMesh ...
+blockMesh
+
+
+# it can be used to create zones
+setSet -batch heater.setSet
+subsetMesh heater -overwrite
+rm -rf constant/polyMesh/sets
+cp constant/setSubset/polyMesh/* constant/polyMesh/
+rm -r constant/setSubset
+rm -r system/setSubset
+rm -r 0/setSubset
+createPatch -overwrite
+sed -i "s/heater/cooler/" 		'system/createPatchDict'
+
+
+setSet -batch cooler.setSet
+subsetMesh cooler -overwrite
+rm -rf constant/polyMesh/sets
+cp constant/setSubset/polyMesh/* constant/polyMesh/
+rm -r constant/setSubset
+rm -r system/setSubset
+rm -r 0/setSubset
+createPatch -overwrite
+sed -i "s/cooler/heater/" 		'system/createPatchDict'
+rm -r VTK
+
+
+echo run solver ...
+$application
+
+# ----------------------------------------------------------------- end-of-file
+

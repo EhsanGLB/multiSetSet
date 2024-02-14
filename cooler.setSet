@@ -1,0 +1,2 @@
+cellSet cooler new boxToCell (0.7 0.45 -0.05) (0.8 0.55 0.05)
+cellSet cooler invert
